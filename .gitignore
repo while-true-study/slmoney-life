@@ -1,0 +1,43 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.history
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VSCode
+.vscode/
+
+# Flutter / Dart / Pub
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+build/
+
+# API Docs
+doc/api/
+
+# Flutter iOS build
+ios/Flutter/.last_build_id
+
+# Obfuscation & Symbol files
+app.*.map.json
+app.*.symbols
+
+# Secrets
+*.keystore
+*.jks
+.env
+*.pem
+*.crt
+*.key
