@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneymanager/screens/CategoryBreakdownScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -116,6 +117,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   value: formatter.format(totalIncome),
                   subText: '예정 0,000원',
                   color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CategoryBreakdownScreen(
+                          month: selectedMonth,
+                          type: '수입',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               SizedBox(width: 15),
@@ -125,6 +137,17 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   value: formatter.format(totalExpense),
                   subText: '예산 0,000원',
                   color: Colors.redAccent,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CategoryBreakdownScreen(
+                          month: selectedMonth,
+                          type: '지출',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -144,32 +167,37 @@ class SummaryCard extends StatelessWidget {
   final String value;
   final String subText;
   final Color color;
+  final VoidCallback? onTap;
 
   const SummaryCard({
     required this.title,
     required this.value,
     required this.subText,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100,
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(height: 4),
-          Text(value, style: TextStyle(color: Colors.white, fontSize: 18)),
-          SizedBox(height: 2),
-          Text(subText, style: TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 100,
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            SizedBox(height: 4),
+            Text(value, style: TextStyle(color: Colors.white, fontSize: 18)),
+            SizedBox(height: 2),
+            Text(subText, style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }

@@ -125,6 +125,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
+
             ],
           ),
         ),
@@ -205,12 +206,68 @@ class _CalendarScreenState extends State<CalendarScreen> {
               content: NotificationContent(
                 id: 1,
                 channelKey: 'basic_channel',
-                title: '편의점 도시락',
-                body: '6,000원 결제',
+                title: '토스',
+                body: '1,760원 원스토어 주식회사 결제완료 | 토스머니 잔액 3000원 | 캐시백 10%는 다음 기회에',
               ),
             );
           },
-          child: Text('알림 테스트'),
+          child: Text('알림 테스트1 토스'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            AwesomeNotifications().createNotification(
+              content: NotificationContent(
+                id: 1,
+                channelKey: 'basic_channel',
+                title: '9원 캐시백',
+                body: '3,300원 결제 | 지에스25 뉴호서대후문점 잔액 1,000원(토스뱅크 체크카드)',
+              ),
+            );
+          },
+          child: Text('알림 테스트2 토스'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            AwesomeNotifications().createNotification(
+              content: NotificationContent(
+                id: 1,
+                channelKey: 'basic_channel',
+                title: '메시지',
+                body: '[Web발신]\n[네이버플러스] 멤버쉽 이용료 4,900원 결제',
+              ),
+            );
+          },
+          child: Text('알림 테스트3 메시지(네이버)'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            AwesomeNotifications().createNotification(
+              content: NotificationContent(
+                id: 1,
+                channelKey: 'basic_channel',
+                title: 'SK텔레콤',
+                body: '[Web발신]결\n결제 일시 2025/0703 10:37\n결제 금액 4,900원\n서비스명 네이버페이\n상품명 NV네이버플러스\n문의처\n사용처\n네이버파이낸셜 주식회사\n사용처 연락처 1588-3820...',
+              ),
+            );
+          },
+          child: Text('알림 테스트4 메시지(SK텔레콤 네이버플러스)'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            AwesomeNotifications().createNotification(
+              content: NotificationContent(
+                id: 1,
+                channelKey: 'basic_channel',
+                title: 'KB국민카드',
+                body: '[Web]발신\n[KB국민체크]맹동훈님 교통대금 5,200원 07/03 체크결제계좌에서 출금예정(07/02기준)',
+              ),
+            );
+          },
+          child: Text('알림 테스트5 메시지(KB국민카드)'),
         ),
 
         // 소비 내역 리스트

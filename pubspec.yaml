@@ -45,6 +45,7 @@ dependencies:
   awesome_notifications: ^0.10.1
   android_intent_plus: ^4.0.1
   shared_preferences: ^2.2.2
+  fl_chart: ^0.66.2
 
 
 dev_dependencies:
