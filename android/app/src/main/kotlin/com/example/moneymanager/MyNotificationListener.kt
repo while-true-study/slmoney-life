@@ -38,7 +38,7 @@ class MyNotificationListener : NotificationListenerService() {
     }
 
     private val client = OkHttpClient()
-    private val openAiKey = "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" // 분리해서 관리하세요
+    private val openAiKey = "gpt api key" // gpt api key
 //    private val serverUrl = "https://webhook.site/de0cdb7a-2e11-426a-8a88-5219a3d7e20a"
     private val serverUrl = "https://8257c5eb-a596-4cff-830a-9f9d274ae206.mock.pstmn.io/category"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
