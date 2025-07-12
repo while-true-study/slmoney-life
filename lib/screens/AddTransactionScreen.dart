@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/TransactionProvider.dart';
-import '../models/Transaction.dart';
 import 'package:uuid/uuid.dart';
+
+import '../models/transaction.dart';
+import '../providers/TransactionProvider.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -16,32 +17,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _storeController = TextEditingController();
   final _amountController = TextEditingController();
   String? _selectedCategory;
-  String? _selectedType = '변동'; // 기본값
-  String _inOutType = '지출';     // 수입 or 지출
-  bool _planned = false;
+  String _inOutType = '지출';
 
   final List<String> _categories = [
-    '식비', '교통', '쇼핑', '카페', '문화생활', '기타'
-  ];
-
-  final List<String> _types = [
-    '정기', '변동', '할부'
+    '식비', '교통', '쇼핑', '생활', '문화', '건강', '기타'
   ];
 
   void _submit() {
-    final store = _storeController.text;
-    final amount = int.tryParse(_amountController.text) ?? 0;
+    final store = _storeController.text.trim();
+    final amount = int.tryParse(_amountController.text.trim()) ?? 0;
 
-    if (store.isEmpty || _selectedCategory == null || _selectedType == null) return;
+    if (store.isEmpty || _selectedCategory == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 항목을 정확히 입력해주세요.')),
+      );
+      return;
+    }
 
     final tx = Transaction(
-      id: Uuid().v4(),
+      id: const Uuid().v4(),
       store: store,
-      amount: _inOutType == '수입' ? amount.abs() : -amount.abs(), // ✅ 금액 처리
+      amount: _inOutType == '수입' ? amount.abs() : -amount.abs(),
       category: _selectedCategory!,
       date: widget.selectedDate,
-      type: _inOutType, // '수입' 또는 '지출'
-      planned: _planned,
+      type: _inOutType,
     );
 
     Provider.of<TransactionProvider>(context, listen: false).addTransaction(tx);
@@ -50,10 +49,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: Text('소비 내역 추가')),
+      appBar: AppBar(
+        title: const Text('내역 추가하기'),
+        centerTitle: true,
+        backgroundColor: Colors.orange,
+        foregroundColor: colorScheme.onPrimary,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -62,77 +68,82 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 children: [
                   Expanded(
                     child: RadioListTile<String>(
-                      title: Text('지출'),
+                      title: const Text('지출'),
                       value: '지출',
                       groupValue: _inOutType,
-                      onChanged: (value) {
-                        setState(() {
-                          _inOutType = value!;
-                        });
-                      },
+                      activeColor: Colors.red,
+                      onChanged: (val) => setState(() => _inOutType = val!),
                     ),
                   ),
                   Expanded(
                     child: RadioListTile<String>(
-                      title: Text('수입'),
+                      title: const Text('수입'),
                       value: '수입',
                       groupValue: _inOutType,
-                      onChanged: (value) {
-                        setState(() {
-                          _inOutType = value!;
-                        });
-                      },
+                      activeColor: Colors.blue,
+                      onChanged: (val) => setState(() => _inOutType = val!),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
 
+              // 내역 제목
               TextField(
                 controller: _storeController,
-                decoration: InputDecoration(labelText: '내역 이름'),
+                decoration: InputDecoration(
+                  labelText: '내역 제목',
+                  prefixIcon: const Icon(Icons.edit_note_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
+              const SizedBox(height: 16),
+
+              // 금액
               TextField(
                 controller: _amountController,
-                decoration: InputDecoration(labelText: '금액'),
                 keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: '금액',
+                  prefixIcon: const Icon(Icons.attach_money),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
+              const SizedBox(height: 16),
+
+              // 카테고리 선택
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
-                hint: Text('카테고리 선택'),
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (val) {
-                  setState(() {
-                    _selectedCategory = val;
-                  });
-                },
+                decoration: InputDecoration(
+                  labelText: '카테고리 선택',
+                  prefixIcon: const Icon(Icons.category_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: _categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedCategory = val),
               ),
-              // 지출일 때만 유형 선택 노출
-              if (_inOutType == '지출')
-                DropdownButtonFormField<String>(
-                  value: _selectedType,
-                  decoration: InputDecoration(labelText: '지출 유형'),
-                  items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedType = val;
-                    });
-                  },
+              const SizedBox(height: 32),
+
+              // 저장 버튼
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.save),
+                  label: const Text('저장하기'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: colorScheme.onPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
                 ),
-              if (_inOutType == '지출')
-                SwitchListTile(
-                  title: Text('예정된 지출인가요?'),
-                  value: _planned,
-                  onChanged: (val) {
-                    setState(() {
-                      _planned = val;
-                    });
-                  },
-                ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _submit,
-                child: Text('추가하기'),
-              )
+              ),
             ],
           ),
         ),

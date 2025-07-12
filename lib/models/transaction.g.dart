@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'Transaction.dart';
+part of 'transaction.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
@@ -23,14 +23,13 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       category: fields[3] as String,
       date: fields[4] as DateTime,
       type: fields[5] as String,
-      planned: fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Transaction obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -42,9 +41,7 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       ..writeByte(4)
       ..write(obj.date)
       ..writeByte(5)
-      ..write(obj.type)
-      ..writeByte(6)
-      ..write(obj.planned);
+      ..write(obj.type);
   }
 
   @override

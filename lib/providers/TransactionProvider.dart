@@ -1,80 +1,126 @@
-import 'package:flutter/material.dart';
+// lib/providers/TransactionProvider.dart
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
-import '../models/Transaction.dart';
 
-class TransactionProvider with ChangeNotifier {
-  List<Transaction> _transactions = [];
-  bool _isLoaded = false; // 로드 여부
+import '../models/transaction.dart';
 
-  List<Transaction> get transactions => _transactions;
-  bool get isLoaded => _isLoaded; // 로드 상태 확인용 getter
+class TransactionProvider extends ChangeNotifier {
 
-  void addTransaction(Transaction tx) {
-    _transactions.add(tx);
-    Hive.box<Transaction>('transactions').add(tx);
+  final List<Transaction> _transactions = [];
+  bool _isLoaded = false;
+
+  List<Transaction> get transactions => List.unmodifiable(_transactions);
+  bool get isLoaded => _isLoaded;
+
+  TransactionProvider() {
+    _loadFromHive();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _loadFromHive() async {
+    final box = Hive.box<Transaction>('transactions');
+    _transactions
+      ..clear()
+      ..addAll(box.values);
+    _isLoaded = true;
     notifyListeners();
   }
 
-  void setTransactions(List<Transaction> txList) {
-    _transactions = txList;
-    _isLoaded = true; // 수동 설정 시에도 true 처리
+  void _onNativeEvent(dynamic event) {
+    try {
+      final data = json.decode(event as String) as Map<String, dynamic>;
+      debugPrint('🔔 Native notification received: $data');
+      handleNotification(data);
+    } catch (e) {
+      debugPrint('🔴 Notification parsing error: $e');
+    }
+  }
+
+  /// 외부 알림으로부터 받은 데이터를 Transaction으로 변환해 저장
+  Future<void> handleNotification(Map<String, dynamic> data) async {
+    final dateStr = data['date'] as String? ?? '';
+    final timeStr = data['time'] as String? ?? '';
+    DateTime dateTime;
+    try {
+      dateTime = DateTime.parse('$dateStr $timeStr');
+    } catch (_) {
+      dateTime = DateTime.now();
+    }
+
+    final rawAmount = data['amount'];
+    final amount = rawAmount is num
+        ? rawAmount.toInt()
+        : int.tryParse(rawAmount.toString()) ?? 0;
+
+    final desc = data['description'] as String? ?? '';
+    final typeStr = data['type'] as String?;
+    final type = (typeStr == '수입' || typeStr == '지출')
+        ? typeStr!
+        : (amount >= 0 ? '수입' : '지출');
+
+    final store = data['store'] as String? ?? desc;
+    final category = data['category'] as String? ?? '';
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+
+    final txn = Transaction(
+      id: id,
+      store: store,
+      amount: amount,
+      category: category,
+      date: dateTime,
+      type: type,
+    );
+
+    final box = Hive.box<Transaction>('transactions');
+    await box.put(txn.id, txn);
+    _transactions.add(txn);
+    notifyListeners();
+  }
+
+  /// 수동으로 화면에서 추가할 때 호출되는 메서드
+  Future<void> addTransaction(Transaction tx) async {
+    final box = Hive.box<Transaction>('transactions');
+    await box.put(tx.id, tx);
+    _transactions.add(tx);
     notifyListeners();
   }
 
   void deleteTransaction(String id) {
     final box = Hive.box<Transaction>('transactions');
-    final Map<dynamic, Transaction> all = box.toMap();
-    final keyToDelete = all.keys.firstWhere(
-          (key) => all[key]!.id == id,
+    final map = box.toMap();
+    final key = map.keys.firstWhere(
+          (k) => map[k]!.id == id,
       orElse: () => null,
     );
-    if (keyToDelete != null) {
-      box.delete(keyToDelete);
-    }
-
-    _transactions.removeWhere((tx) => tx.id == id);
+    if (key != null) box.delete(key);
+    _transactions.removeWhere((t) => t.id == id);
     notifyListeners();
   }
 
-  void loadTransactions() {
-    final box = Hive.box<Transaction>('transactions');
-    _transactions = box.values.toList();
-    _isLoaded = true; // 데이터 로딩 완료 표시
-    notifyListeners();
-  }
+  List<Transaction> getByMonth(int y, int m) =>
+      _transactions.where((tx) => tx.date.year == y && tx.date.month == m).toList();
 
-  List<Transaction> getByMonth(int year, int month) {
-    return _transactions
-        .where((tx) => tx.date.year == year && tx.date.month == month)
-        .toList();
-  }
+  int getTotalIncome(int y, int m) =>
+      getByMonth(y, m).where((tx) => tx.amount > 0).fold(0, (s, tx) => s + tx.amount);
 
-  int getTotalIncome(int year, int month) {
-    return getByMonth(year, month)
-        .where((tx) => tx.amount > 0)
-        .fold(0, (sum, tx) => sum + tx.amount);
-  }
+  int getTotalSpent(int y, int m) =>
+      getByMonth(y, m).where((tx) => tx.amount < 0).fold(0, (s, tx) => s + tx.amount.abs());
 
-  int getTotalSpent(int year, int month) {
-    return getByMonth(year, month)
-        .where((tx) => tx.amount < 0)
-        .fold(0, (sum, tx) => sum + tx.amount.abs());
-  }
+  List<Transaction> getByCategory(int y, int m, String cat) =>
+      getByMonth(y, m)
+          .where((tx) => tx.category == cat && tx.amount < 0)
+          .toList();
 
-  List<Transaction> getByCategory(int year, int month, String category) {
-    return getByMonth(year, month)
-        .where((tx) => tx.category == category && tx.amount < 0)
-        .toList();
-  }
-
-  int getCategorySpentTotal(int year, int month, String category) {
-    return getByCategory(year, month, category)
-        .fold(0, (sum, tx) => sum + tx.amount.abs());
-  }
-
-  int getSpentByType(int year, int month, String type) {
-    return getByMonth(year, month)
-        .where((tx) => tx.amount < 0 && tx.type == type)
-        .fold(0, (sum, tx) => sum + tx.amount.abs());
-  }
+  int getCategorySpentTotal(int y, int m, String cat) =>
+      getByCategory(y, m, cat).fold(0, (s, tx) => s + tx.amount.abs());
 }
