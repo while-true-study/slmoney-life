@@ -62,8 +62,8 @@ class _MyAppState extends State<MyApp> {
   final List<Widget> _screens = [
     CalendarScreen(),
     SummaryScreen(),
-    // AnalysisScreen(),
-    AnalysisScreen2()
+    AnalysisScreen(),
+    // AnalysisScreen2()
   ];
 
   @override

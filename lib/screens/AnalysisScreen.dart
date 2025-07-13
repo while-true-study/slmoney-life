@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({Key? key}) : super(key: key);
@@ -9,31 +12,107 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  final Map<String, String> consumptionPatterns = {
-    'consumption_type': '루틴형',
-    'time_of_day_pattern': '주로 점심 시간에 소비가 집중됩니다.',
-    'consumption_frequency': '매일 일정하게 소비합니다.',
-    'category_diversity': '소비하는 카테고리가 몇 가지로 제한되어 있습니다.',
-    'weekday_pattern': '특정 요일에만 소비가 이루어집니다.',
+  static const _uuidChannel = MethodChannel('moneymanager/uuid');
+
+  String? _uuid;
+  final List<_ChatEntry> chat = [];
+  final ScrollController _scrollController = ScrollController();
+
+  final Map<String, String> _endpoints = {
+    '패턴 분석해줘': 'http://27.117.255.218:8000/GetConsumerBehaviorAnalyzer',
+    '소비 현황 알려줘': 'http://27.117.255.218:8000/GetConsumptionPredictionAnalyzer',
+    '어떻게 할까?': 'http://27.117.255.218:8000/GetAdviceAnalyzer',
   };
 
-  final Map<String, String> trendData = {
-    'consumption_trend': '일일 평균 100,485원 → 최근 평균 90,928원 (소비 감소)',
-    'consumption_volatility': '70,098원 (다소 변동적)',
-    'consumption_trend_ratio': '0.9049 (감소 추세)',
-    'weekday_consumption_pattern': '금·월↑, 일·수↓',
-    'category_proportion': '쇼핑 50.58%, 식비 24.53%, 문화 9.62%',
-    'category_transition_entropy': '11.69 (높은 분산)',
-    'predictions': '보수: 999,214원 / 낙관: 1,770,030원',
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadUuid();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final now = DateTime.now();
+      setState(() {
+        chat.add(_ChatEntry(
+          isUser: false,
+          text: '무엇을 도와드릴까요?',
+          items: null,
+          time: now,
+        ));
+      });
+    });
+  }
 
-  final Map<String, String> recommendations = {
-    'budget': '예산의 24.76% 사용 (여유롭게 계획하세요)',
-    'category_diversity': '쇼핑 비중 높음 → 다른 카테고리도 고려',
-    'time_of_day_spending': '밤 시간대 집중 → 분산 필요',
-    'cycle_balance': '주기성 불균형 → 일정 패턴 유지 권장',
-    'user_group_comparison': '전체 대비 소비 낮음 → 필요 시 여유 고려',
-  };
+  Future<void> _loadUuid() async {
+    try {
+      final id = await _uuidChannel.invokeMethod<String>('getDeviceUuid');
+      setState(() => _uuid = id);
+    } on PlatformException catch (e) {
+      debugPrint('UUID 로드 실패: ${e.message}');
+    }
+  }
+
+  Future<Map<String, String>> _postToApi(String url) async {
+    if (_uuid == null) throw Exception('UUID 미설정');
+    final now = DateTime.now();
+    final body = json.encode({
+      'uuid': _uuid,
+      'date': DateFormat('yyyy-MM-dd').format(now),
+    });
+
+    final res = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (res.statusCode != 200) {
+      throw Exception('서버 에러: ${res.statusCode}');
+    }
+    final data = json.decode(res.body) as Map<String, dynamic>;
+
+    return data.map((k, v) {
+      if (v is List) {
+        return MapEntry(k, v.join('\n'));
+      } else {
+        return MapEntry(k, v.toString());
+      }
+    });
+  }
+
+  Future<void> _handleButton(String title) async {
+    final now = DateTime.now();
+    setState(() {
+      // 사용자 메시지
+      chat.add(_ChatEntry(isUser: true, text: title, items: null, time: now));
+      // 로딩 표시
+      chat.add(_ChatEntry(isUser: false, text: null, items: {}, time: now));
+    });
+
+    try {
+      final result = await _postToApi(_endpoints[title]!);
+      setState(() {
+        // 로딩 항목 대체
+        chat[chat.length - 1] =
+            _ChatEntry(isUser: false, text: null, items: result, time: now);
+      });
+    } catch (e) {
+      setState(() {
+        chat[chat.length - 1] = _ChatEntry(
+          isUser: false,
+          text: '에러: ${e.toString()}',
+          items: null,
+          time: now,
+        );
+      });
+    }
+
+    // 자동 스크롤
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   final Map<String, String> labelMap = {
     'consumption_type': '소비 유형',
@@ -48,183 +127,152 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     'category_proportion': '카테고리 비율',
     'category_transition_entropy': '카테고리 다양성',
     'predictions': '예측',
+    'summary': '요약',
     'budget': '예산 사용율',
     'time_of_day_spending': '시간대 소비 추천',
     'cycle_balance': '주기 균형',
     'user_group_comparison': '그룹 비교',
   };
 
-  final List<_ChatEntry> chat = [];
-  final ScrollController _scrollController = ScrollController();
+  Widget _buildBubble(_ChatEntry entry) {
+    final theme = Theme.of(context);
+    final isUser = entry.isUser;
+    final bgColor = isUser ? const Color(0xFFFFE500) : Colors.white;
+    final radius = isUser
+        ? const BorderRadius.only(
+      topLeft: Radius.circular(16),
+      topRight: Radius.circular(16),
+      bottomLeft: Radius.circular(16),
+    )
+        : const BorderRadius.only(
+      topLeft: Radius.circular(16),
+      topRight: Radius.circular(16),
+      bottomRight: Radius.circular(16),
+    );
 
-  void _addSection(String title, Map<String, String> items) {
-    final timestamp = DateTime.now();
-    setState(() {
-      chat.add(_ChatEntry(isUser: true, text: title, time: timestamp));
-      chat.add(_ChatEntry(isUser: false, items: items, time: timestamp));
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    });
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment:
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: CircleAvatar(radius: 14),
+            ),
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isUser ? '나' : '도우미',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isUser ? theme.primaryColor : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: radius,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 2,
+                        offset: Offset(1, 1),
+                      )
+                    ],
+                  ),
+                  child: entry.items == null
+                  // 텍스트 메시지
+                      ? Text(entry.text!, style: const TextStyle(fontSize: 15))
+                  // 로딩 인디케이터
+                      : entry.items!.isEmpty
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child:
+                    CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  // 키-값 리스트
+                      : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: entry.items!.entries.map((e) {
+                      final isSummary = e.key == 'summary';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 4),
+                        child: Text(
+                          '${labelMap[e.key] ?? e.key}: ${e.value}',
+                          style: TextStyle(
+                            fontSize: isSummary ? 13 : 14,
+                            fontStyle: isSummary
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat('HH:mm').format(entry.time),
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          if (isUser)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: theme.primaryColor,
+                child: const Icon(Icons.person,
+                    size: 16, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('소비 습관 분석'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue.shade50, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: chat.length,
+              itemBuilder: (_, i) => _buildBubble(chat[i]),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16.0),
-                itemCount: chat.length,
-                itemBuilder: (context, index) {
-                  final entry = chat[index];
-                  final bubbleColor = entry.isUser
-                      ? theme.colorScheme.secondary.withOpacity(0.2)
-                      : theme.cardColor;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    margin: const EdgeInsets.symmetric(vertical: 6.0),
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: bubbleColor,
-                      borderRadius: BorderRadius.circular(16.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(2, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: entry.isUser
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          children: [
-                            if (!entry.isUser) ...[
-                              const Icon(Icons.analytics, size: 20),
-                              const SizedBox(width: 8),
-                            ],
-                            Expanded(
-                              child: entry.isUser
-                                  ? Text(entry.text!, style: const TextStyle(fontSize: 16.0))
-                                  : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: entry.items!.entries.map((e) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.arrow_right, size: 18, color: theme.primaryColor),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            '${labelMap[e.key] ?? e.key}: ${e.value}',
-                                            style: const TextStyle(fontSize: 14.5),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                            if (entry.isUser) ...[
-                              const SizedBox(width: 8),
-                              CircleAvatar(
-                                radius: 14,
-                                backgroundColor: theme.primaryColor,
-                                child: const Icon(Icons.person, size: 16, color: Colors.white),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Align(
-                          alignment: entry.isUser
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Text(
-                            DateFormat('HH:mm').format(entry.time),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+          const Divider(thickness: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 8,
+              children: _endpoints.keys.map((title) {
+                return ActionChip(
+                  label: Text(title),
+                  onPressed: () => _handleButton(title),
+                );
+              }).toList(),
             ),
-            const Divider(thickness: 1),
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: AnimatedOpacity(
-                opacity: 1.0,
-                duration: const Duration(milliseconds: 500),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => _addSection('기본 패턴', consumptionPatterns),
-                      icon: const Icon(Icons.timeline),
-                      label: const Text('기본 패턴'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 3,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _addSection('소비 현황', trendData),
-                      icon: const Icon(Icons.show_chart),
-                      label: const Text('소비 현황'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 3,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _addSection('추천', recommendations),
-                      icon: const Icon(Icons.recommend),
-                      label: const Text('추천'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -236,5 +284,10 @@ class _ChatEntry {
   final Map<String, String>? items;
   final DateTime time;
 
-  _ChatEntry({required this.isUser, this.text, this.items, required this.time});
+  _ChatEntry({
+    required this.isUser,
+    this.text,
+    this.items,
+    required this.time,
+  });
 }

@@ -38,9 +38,9 @@ class MyNotificationListener : NotificationListenerService() {
     }
 
     private val client = OkHttpClient()
-    private val openAiKey = "api" // 분리해서 관리하세요
-    private val serverUrl = "https://webhook.site/de0cdb7a-2e11-426a-8a88-5219a3d7e20a"
-//    private val serverUrl = "http://27.117.255.218:8000/GetCategory"
+    private val openAiKey = "api-key" // 분리해서 관리하세요
+//    private val serverUrl = "https://webhook.site/de0cdb7a-2e11-426a-8a88-5219a3d7e20a"
+    private val serverUrl = "http://27.117.255.218:8000/GetCategory"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -106,7 +106,7 @@ class MyNotificationListener : NotificationListenerService() {
                         val desc     = parsed.optString("description","")
                         val type     = parsed.optString("type","지출")
 
-                        // 서버로 보낼 JSON (category 제외)
+                        // 서버로 보낼 JSON
                         val serverJson = JSONObject().apply {
                             put("uuid", deviceUuid)
                             put("date", localDate)
