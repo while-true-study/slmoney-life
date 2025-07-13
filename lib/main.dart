@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneymanager/screens/AnalysisScreen2.dart';
 import 'package:moneymanager/screens/SummaryScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -61,7 +62,8 @@ class _MyAppState extends State<MyApp> {
   final List<Widget> _screens = [
     CalendarScreen(),
     SummaryScreen(),
-    AnalysisScreen(),
+    // AnalysisScreen(),
+    AnalysisScreen2()
   ];
 
   @override

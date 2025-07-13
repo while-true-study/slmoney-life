@@ -38,10 +38,10 @@ class TransactionProvider extends ChangeNotifier {
   void _onNativeEvent(dynamic event) {
     try {
       final data = json.decode(event as String) as Map<String, dynamic>;
-      debugPrint('🔔 Native notification received: $data');
+      debugPrint('Native notification received: $data');
       handleNotification(data);
     } catch (e) {
-      debugPrint('🔴 Notification parsing error: $e');
+      debugPrint('Notification parsing error: $e');
     }
   }
 

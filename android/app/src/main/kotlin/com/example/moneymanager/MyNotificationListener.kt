@@ -38,9 +38,9 @@ class MyNotificationListener : NotificationListenerService() {
     }
 
     private val client = OkHttpClient()
-    private val openAiKey = "gpt api key" // gpt api key
-//    private val serverUrl = "https://webhook.site/de0cdb7a-2e11-426a-8a88-5219a3d7e20a"
-    private val serverUrl = "https://8257c5eb-a596-4cff-830a-9f9d274ae206.mock.pstmn.io/category"
+    private val openAiKey = "api" // 분리해서 관리하세요
+    private val serverUrl = "https://webhook.site/de0cdb7a-2e11-426a-8a88-5219a3d7e20a"
+//    private val serverUrl = "http://27.117.255.218:8000/GetCategory"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -113,6 +113,7 @@ class MyNotificationListener : NotificationListenerService() {
                             put("time", localTime)
                             put("amount", abs(amount))
                             put("description", desc)
+                            put("category", "category")
                         }.toString()
 
                         // 서버 호출
